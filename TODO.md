@@ -6,3 +6,4 @@
 4. Global config
 5. Unit loader
 6. Nesting Objects
+7. Object keys validation: must contains only ascii letters, digits, underscore and dash
