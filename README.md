@@ -1,8 +1,6 @@
 # MOON (Magic Oriented Object Notation) [Under development!]
 
 [![CI](https://github.com/magicaleks/moon/actions/workflows/ci.yml/badge.svg)](https://github.com/magicaleks/moon/actions/workflows/ci.yml)
-[//]: # ([![PyPI]&#40;https://img.shields.io/pypi/v/moon&#41;]&#40;https://pypi.org/project/moon/&#41;)
-[//]: # ([![Python]&#40;https://img.shields.io/pypi/pyversions/moon&#41;]&#40;https://pypi.org/project/moon/&#41;)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
 Фреймворк для работы с MOON в Python.
