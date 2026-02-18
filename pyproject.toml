@@ -1,5 +1,9 @@
+[build-system]
+requires = ["setuptools >= 77.0.3"]
+build-backend = "setuptools.build_meta"
+
 [project]
-name = "moon"
+name = "magicmoon"
 version = "0.0.1"
 description = "MOON (Magic Oriented Object Notation) library"
 readme = "README.md"
@@ -11,9 +15,15 @@ authors = [
 classifiers = [
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
   "License :: OSI Approved :: Apache Software License",
 ]
 dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/magicaleks/moon"
+Issues = "https://github.com/magicaleks/moon/issues"
 
 [project.optional-dependencies]
 dev = [
@@ -23,3 +33,7 @@ dev = [
   "ruff>=0.2",
   "mypy>=1.8",
 ]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["moon*"]

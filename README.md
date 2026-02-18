@@ -1,6 +1,8 @@
 # MOON (Magic Oriented Object Notation) [Under development!]
 
 [![CI](https://github.com/magicaleks/moon/actions/workflows/ci.yml/badge.svg)](https://github.com/magicaleks/moon/actions/workflows/ci.yml)
+[![PyPI version](https://img.shields.io/pypi/v/magicmoon)](https://pypi.org/project/magicmoon/)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
 Фреймворк для работы с MOON в Python.
@@ -16,6 +18,21 @@ MOON - это гибрид YAML и TOON. Отличительная особен
 самостоятельно определять кастомные теги.
 
 Основная идея использования - конфигурации приложений.
+
+## Быстрый старт
+
+Установка:
+```shell
+pip install magicmoon
+```
+
+Использование:
+```python
+import moon
+
+obj = moon.load("./example.moon")
+print(obj["context"])
+```
 
 ## Эталонная реализация Python (v3.12.6)
 

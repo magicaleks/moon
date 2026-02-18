@@ -41,4 +41,4 @@ class Token:
     value: Optional[str] = None
 
     def __repr__(self) -> str:
-        return f"'<Token '{self.value}' type: '{self.type}' at line {self.line} column {self.column}>"
+        return f"<Token '{self.value}' type: '{self.type}' at line {self.line} column {self.column}>"
