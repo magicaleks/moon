@@ -45,7 +45,7 @@ class TestFileIO(BaseFactory):
 
     def test_write_path_positive(self, fixtures_path: Path):
         moon_path = Path(tempfile.gettempdir()) / "mixed.moon"
-        moon_text = moon_path.read_text()
+        moon_text = (fixtures_path / "mixed.moon").read_text()
         fileio.write(moon_text, fo=moon_path)
         assert compare_files(moon_path, fixtures_path / "mixed.moon")
 
