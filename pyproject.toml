@@ -1,0 +1,25 @@
+[project]
+name = "moon"
+version = "0.0.1"
+description = "MOON (Magic Oriented Object Notation) library"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+authors = [
+  { name = "Aleksandr @magicaleks", email = "aleksandr@magicaleks.me" }
+]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "License :: OSI Approved :: Apache Software License",
+]
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8",
+  "pytest-dependency>=0.6",
+  "pytest-order>=1.3",
+  "ruff>=0.2",
+  "mypy>=1.8",
+]
