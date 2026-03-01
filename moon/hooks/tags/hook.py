@@ -58,7 +58,7 @@ class TagHook(ABC):
 
     @classmethod
     @abstractmethod
-    def construct(cls, node: TagNode) -> Any:
+    def construct(cls, node: ASTNode) -> Any:
         pass
 
     @classmethod

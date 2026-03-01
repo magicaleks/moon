@@ -78,4 +78,4 @@ class TestEmitter(BaseFactory):
     )
     def test_emitter_negative(self, events: List[Event]):
         with pytest.raises(EmitterError):
-            print(list(EventEmitter(events)))
+            list(EventEmitter(events))

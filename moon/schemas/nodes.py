@@ -15,6 +15,7 @@ class NodeType(StrEnum):
     # Objects
     object_ = auto()
     key_value = auto()
+    nested_object = auto()
     scalar = auto()
 
 

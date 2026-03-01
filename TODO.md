@@ -1,9 +1,8 @@
 # TODO
 
-1. Indentations
-2. Static/dynamic extension load
-3. Migrate hooks to extensions
-4. Global config
-5. Unit loader
-6. Nesting Objects
-7. Object keys validation: must contains only ascii letters, digits, underscore and dash
+1. Static/dynamic extension load
+2. Migrate hooks to extensions
+3. Global config
+4. Unit loader
+5. Object keys must contain only ascii letters, digits, underscore and dash
+6. Arrays in object values

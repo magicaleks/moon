@@ -21,7 +21,6 @@ class EventParser(StatefulStreamer[Token, Event]):
             try:
                 token = self.read()
                 if token.type in [
-                    TokenType.tab,
                     TokenType.space,
                     TokenType.newline,
                     TokenType.comment,
