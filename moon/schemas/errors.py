@@ -40,6 +40,12 @@ class ParserError(_MOONError):
     """
 
 
+class LevelIndentationError(ParserError):
+    """
+    Raised when invalid indentation is encountered.
+    """
+
+
 class UnexpectedToken(ParserError):
     """
     Raised when unexpected token is encountered.

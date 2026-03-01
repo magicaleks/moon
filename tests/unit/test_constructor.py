@@ -38,7 +38,7 @@ class TestConstructor(BaseFactory):
     @pytest.mark.parametrize(
         "content",
         [
-            "@object me @object me",
+            "@object me\n@object me",
         ],
     )
     def test_constructor_negative(self, content: str):

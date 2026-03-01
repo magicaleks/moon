@@ -11,7 +11,6 @@ from typing import Optional
 class TokenType(StrEnum):
     # Base tokens
     eof = auto()
-    tab = auto()
     space = auto()
     newline = auto()
 

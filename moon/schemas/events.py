@@ -19,6 +19,8 @@ class EventType(StrEnum):
     # Object pairs
     key = auto()
     value = auto()
+    nesting_start = auto()
+    nesting_end = auto()
 
     # Idents
     ident = auto()

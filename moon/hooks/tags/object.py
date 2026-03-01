@@ -7,7 +7,7 @@ Object tah hook. Resolving as python dict with str keys.
 """
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, Iterator, List, Union
+from typing import Any, Dict, Final, Iterator, List, Tuple, Union
 
 from moon.core.base import StatefulStreamer
 from moon.hooks.types import represent_type, resolve_type
@@ -18,6 +18,7 @@ from moon.schemas import (
     Event,
     EventType,
     InvalidObjectError,
+    LevelIndentationError,
     NodeType,
     ScalarNode,
     SerializationError,
@@ -30,6 +31,8 @@ from moon.schemas import (
 )
 
 from .hook import TagHook, resolve_tag
+
+INDENTATION: Final[int] = 4
 
 
 @dataclass(slots=True)
@@ -46,6 +49,17 @@ class KeyValueNode(ASTNode):
 
 
 @dataclass(slots=True)
+class NestedObjectNode(ASTNode):
+    """
+    Nested object node.
+    The same object node just inside other object.
+    """
+
+    type: NodeType = field(default=NodeType.nested_object, init=False)
+    children: List[KeyValueNode]
+
+
+@dataclass(slots=True)
 class ObjectNode(TagNode):
     """
     @object node.
@@ -54,10 +68,10 @@ class ObjectNode(TagNode):
 
     type: NodeType = field(default=NodeType.object_, init=False)
     name: str
-    children: List[KeyValueNode]
+    children: List[Union[KeyValueNode, NestedObjectNode]]
 
 
-def _parse_pair_hook(streamer: StatefulStreamer[Token, Event]) -> Iterator[Event]:
+def _parse_pair(streamer: StatefulStreamer[Token, Event]) -> Iterator[Event]:
     value_started = False
     token = streamer.read()
     yield Event(type=EventType.key, value=token.value)
@@ -69,16 +83,99 @@ def _parse_pair_hook(streamer: StatefulStreamer[Token, Event]) -> Iterator[Event
         if not value_started:
             if token.type == TokenType.colon:
                 value_started = True
-            elif token.type not in [TokenType.space, TokenType.tab]:
+            elif token.type != TokenType.space:
                 raise UnexpectedToken(f"Unexpected token: {token}. Expected colon.")
         else:
             if token.type not in [TokenType.newline, TokenType.comment, TokenType.eof]:
-                value += token.value
+                if token.type != TokenType.space or (
+                    token.type == TokenType.space and len(value) > 0
+                ):
+                    value += token.value
             else:
-                yield Event(type=EventType.value, value=value.strip())
+                yield Event(type=EventType.value, value=value)
                 return
 
         streamer.next()
+
+
+def _compose_object_nodes(
+    streamer: StatefulStreamer[Event, ASTNode],
+) -> List[KeyValueNode]:
+    nodes = []
+    while True:
+        event = streamer.read()
+        if event.type == EventType.key:
+            value_event = streamer.next()
+            if streamer.peek().type == EventType.nesting_start:
+                streamer.next()
+                nodes.append(
+                    KeyValueNode(
+                        key=ScalarNode(value=event.value),
+                        value=NestedObjectNode(
+                            children=_compose_object_nodes(streamer),
+                        ),
+                    )
+                )
+            elif value_event.type == EventType.value:
+                nodes.append(
+                    KeyValueNode(
+                        key=ScalarNode(value=event.value),
+                        value=ScalarNode(value=value_event.value),
+                    )
+                )
+            else:
+                raise UnexpectedEvent(f"Unexpected event type {value_event.type}")
+        if streamer.read().type == EventType.tag_end:
+            return nodes
+        elif streamer.read().type == EventType.nesting_end:
+            streamer.next()
+            return nodes
+        elif event.type != EventType.key:
+            streamer.next()
+
+
+def _represent_object(
+    value: Dict[str, Any],
+) -> List[Union[KeyValueNode, NestedObjectNode]]:
+    children = []
+
+    for k, v in value.items():
+        if not isinstance(k, str):
+            raise InvalidObjectError(f"Invalid key: {k}. Must be str got: {type(k)}")
+
+        if isinstance(v, Dict):
+            nested_children = _represent_object(v)
+            children.append(
+                KeyValueNode(
+                    key=ScalarNode(value=k),
+                    value=NestedObjectNode(children=nested_children),
+                )
+            )
+        elif isinstance(v, List):
+            raise NotImplementedError(f"Arrays support not implemented.")
+        else:
+            value_scalar = represent_type(v)
+            children.append(
+                KeyValueNode(
+                    key=ScalarNode(value=k), value=ScalarNode(value=value_scalar)
+                )
+            )
+
+    return children
+
+
+def _serialize_object(node: Union[ObjectNode, NestedObjectNode]) -> Iterator[Event]:
+    for child in node.children:
+        if isinstance(child, KeyValueNode):
+            yield Event(type=EventType.key, value=child.key.value)
+            if isinstance(child.value, NestedObjectNode):
+                yield Event(type=EventType.nesting_start)
+                yield from _serialize_object(child.value)
+                yield Event(type=EventType.nesting_end)
+            else:
+                yield Event(type=EventType.value, value=child.value.value)
+        else:
+            raise SerializationError(f"Expected KeyValueNode. Got {type(child)}")
 
 
 class ObjectHook(TagHook):
@@ -87,31 +184,56 @@ class ObjectHook(TagHook):
 
     @classmethod
     def parse(cls, streamer: StatefulStreamer[Token, Event]) -> Iterator[Event]:
-        identified = False  # found object identifier mark
+        identified = False
         while True:
             token = streamer.read()
 
-            if not identified:
-                if token.type == TokenType.word:
-                    identified = True
-                    yield Event(type=EventType.ident, value=token.value)
-                elif token.type not in [TokenType.tab, TokenType.space]:
-                    raise UnexpectedToken(
-                        f"Unexpected token: {token}. Expected identifier."
-                    )
+            if token.type == TokenType.word and not identified:
+                yield Event(type=EventType.ident, value=token.value)
+                identified = True
+            elif (
+                token.type in [TokenType.newline, TokenType.comment, TokenType.eof]
+                and identified
+            ):
+                break
+            elif token.type != TokenType.space:
+                raise UnexpectedToken(
+                    f"Unexpected token: {token}. Expected identifier."
+                )
 
-            else:
-                if token.type == TokenType.word:
-                    yield from _parse_pair_hook(streamer)
-                elif token.type not in [
-                    TokenType.tab,
-                    TokenType.space,
-                    TokenType.newline,
-                    TokenType.eof,
-                ]:
-                    raise UnexpectedToken(
-                        f"Unexpected token: {token}. Expected field key."
+            streamer.next()
+
+        indent_level = 0
+        indents: List[int] = []
+        while True:
+            token = streamer.read()
+            if token.type == TokenType.word:
+                if not indents:
+                    indents.append(indent_level)
+                if indent_level == indents[-1]:
+                    yield from _parse_pair(streamer)
+                elif indent_level < indents[-1] and indent_level in indents:
+                    for i in range(len(indents[indents.index(indent_level) + 1 :])):
+                        yield Event(type=EventType.nesting_end)
+                    del indents[indents.index(indent_level) + 1 :]
+                    yield from _parse_pair(streamer)
+                elif indent_level > indents[-1]:
+                    yield Event(type=EventType.nesting_start)
+                    yield from _parse_pair(streamer)
+                    indents.append(indent_level)
+                else:
+                    raise LevelIndentationError(
+                        f"Indentation error at {token.line}:{token.column}"
                     )
+                indent_level = 0
+            elif token.type == TokenType.space:
+                indent_level += 1
+            elif token.type not in [
+                TokenType.eof,
+                TokenType.newline,
+                TokenType.comment,
+            ]:
+                raise UnexpectedToken(f"Unexpected token: {token}. Expected field key.")
 
             peeked = streamer.peek()
             if (
@@ -125,31 +247,22 @@ class ObjectHook(TagHook):
 
     @classmethod
     def compose(cls, streamer: StatefulStreamer[Event, ASTNode]) -> TagNode:
-        nodes = []
         ident = streamer.next()
         if ident.type != EventType.ident:
             raise UnexpectedEvent(f"Unexpected event type {ident.type}")
 
-        while True:
-            event = streamer.read()
-
-            if event.type == EventType.key:
-                value_event = streamer.next()
-                if value_event.type != EventType.value:
-                    raise UnexpectedEvent(f"Unexpected event type {value_event.type}")
-                nodes.append(
-                    KeyValueNode(
-                        key=ScalarNode(value=event.value),
-                        value=ScalarNode(value=value_event.value),
-                    )
-                )
-            if event.type == EventType.tag_end:
-                return ObjectNode(tag=cls.tag, name=ident.value, children=nodes)
-
-            streamer.next()
+        return ObjectNode(
+            tag=cls.tag, name=ident.value, children=_compose_object_nodes(streamer)
+        )
 
     @classmethod
-    def construct(cls, node: TagNode) -> Any:
+    def construct(cls, node: ASTNode) -> Any:
+
+        if not isinstance(node, (ObjectNode, NestedObjectNode)):
+            raise UnexpectedNode(
+                f"Unexpected node: {node}. Expected ObjectNode or NestedObjectNode."
+            )
+
         res = {}
 
         for child in node.children:
@@ -162,8 +275,8 @@ class ObjectHook(TagHook):
                         raise DuplicateIdentifierNode(
                             f"Duplicate keys {child.key.value}."
                         )
-                elif isinstance(pair_value, ASTNode):
-                    raise NotImplementedError("Nesting objects not implemented yet")
+                elif isinstance(pair_value, NestedObjectNode):
+                    res[child.key.value] = cls.construct(pair_value)
                 else:
                     raise UnexpectedNode(f"Unexpected node: {pair_value}")
             else:
@@ -176,30 +289,19 @@ class ObjectHook(TagHook):
         if not isinstance(value, dict):
             raise InvalidObjectError(f"Expected dict. Got {type(value)}")
 
-        children = []
-
-        for k, v in value.items():
-            if not isinstance(k, str):
-                raise InvalidObjectError(f"Unexpected key: {k}")
-
-            value_scalar = represent_type(v)
-            children.append(
-                KeyValueNode(
-                    key=ScalarNode(value=k), value=ScalarNode(value=value_scalar)
-                )
-            )
+        children = _represent_object(value)
 
         return ObjectNode(tag=cls.tag, name=name, children=children)
 
     @classmethod
     def serialize(cls, value: TagNode) -> Iterator[Event]:
+        if not isinstance(value, ObjectNode):
+            raise UnexpectedNode(
+                f"Unexpected node: {value}. Expected ObjectNode got {type(value)}"
+            )
         yield Event(type=EventType.tag_start, value=cls.tag)
         yield Event(type=EventType.ident, value=value.name)
-        for child in value.children:
-            if not isinstance(child, KeyValueNode):
-                raise SerializationError(f"Expected KeyValueNode. Got {type(child)}")
-            yield Event(type=EventType.key, value=child.key.value)
-            yield Event(type=EventType.value, value=child.value.value)
+        yield from _serialize_object(value)
         yield Event(type=EventType.tag_end, value=cls.tag)
 
     @classmethod
@@ -212,6 +314,8 @@ class ObjectHook(TagHook):
 
         streamer.next()
 
+        indent_level = 1
+
         while True:
             event = streamer.read()
             if not identified:
@@ -222,11 +326,19 @@ class ObjectHook(TagHook):
                     raise EmitterError(f"Unexpected event: {event}")
             else:
                 if event.type == EventType.key:
-                    content += " " * 4 + event.value + ": "
+                    content += " " * INDENTATION * indent_level + event.value + ":"
+                    if streamer.peek().type == EventType.nesting_start:
+                        content += "\n"
+                    else:
+                        content += " "
                 elif event.type == EventType.value:
                     content += event.value + "\n"
                 elif event.type == EventType.tag_end:
                     break
+                elif event.type == EventType.nesting_start:
+                    indent_level += 1
+                elif event.type == EventType.nesting_end:
+                    indent_level -= 1
                 else:
                     raise EmitterError(f"Unexpected event: {event}")
 

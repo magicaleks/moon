@@ -34,7 +34,6 @@ class Tokenizer(StatefulStreamer[str, Token]):
 
     spec_tokens: Dict[str, TokenType] = {
         "\n": TokenType.newline,
-        "\t": TokenType.tab,
         " ": TokenType.space,
         ",": TokenType.comma,
         ":": TokenType.colon,
