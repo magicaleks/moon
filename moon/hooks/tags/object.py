@@ -7,7 +7,7 @@ Object tah hook. Resolving as python dict with str keys.
 """
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, Final, Iterator, List, Tuple, Union
+from typing import Any, Dict, Final, Iterator, List, Union
 
 from moon.core.base import StatefulStreamer
 from moon.hooks.types import represent_type, resolve_type
@@ -152,7 +152,7 @@ def _represent_object(
                 )
             )
         elif isinstance(v, List):
-            raise NotImplementedError(f"Arrays support not implemented.")
+            raise NotImplementedError("Arrays support not implemented.")
         else:
             value_scalar = represent_type(v)
             children.append(
